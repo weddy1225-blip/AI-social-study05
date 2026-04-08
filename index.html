@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>小小地方官 - AI 社會實踐</title>
+    <style>
+        :root {
+            --safety: #FF6B6B; --neighbor: #FFD93D; --build: #6BCBFF; --culture: #6BCB77; --bg: #FFF9E6;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: "Microsoft JhengHei", sans-serif;
+            background-color: var(--bg);
+            display: flex; flex-direction: column; align-items: center;
+            padding: 10px; margin: 0; color: #2D3436; overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        #start-screen {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; height: 100vh; width: 100%;
+            background: radial-gradient(circle, #FFF9E6 0%, #FFE69A 100%);
+            position: fixed; top: 0; left: 0; z-index: 100; transition: 0.5s;
+        }
+
+        .btn-main {
+            background: #6C5CE7; color: white; padding: 15px 40px; font-size: 1.4rem;
+            border-radius: 100px; cursor: pointer; border: 5px solid white;
+            box-shadow: 0 8px 0px #4834D4; font-weight: 900; transition: 0.2s; outline: none;
+        }
+
+        #game-container {
+            display: none; width: 100%; max-width: 900px; background: white;
+            padding: 20px; border-radius: 40px; box-shadow: 0 15px 0px #E6E6E6;
+            margin-top: 10px; border: 6px solid #FFD93D;
+        }
+
+        /* 修正標籤顏色重複問題：確保只有一個圓點 */
+        .legend-container {
+            background: #F8F9FA; border-radius: 25px; padding: 15px;
+            margin-bottom: 20px; border: 2px solid #EEE;
+        }
+        .legend-grid { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+        .legend-item {
+            display: flex; align-items: center; gap: 8px; background: white;
+            padding: 8px 16px; border-radius: 100px; border: 1px solid #DDD;
+            font-size: 0.9rem; font-weight: bold;
+        }
+        .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+        .instruction {
+            background: #FFF3CD; padding: 12px; border-radius: 15px; margin-bottom: 20px;
+            font-weight: bold; text-align: center; font-size: 1rem; border: 2px dashed #FFD93D;
+        }
+
+        .event-list {
+            display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-bottom: 30px;
+            min-height: 120px; padding: 15px; background: #F1F2F6; border-radius: 30px;
+            border: 3px inset #DFE6E9; width: 100%;
+        }
+
+        .event-card {
+            width: calc(50% - 10px); max-width: 180px; padding: 12px; border-radius: 18px; cursor: grab;
+            box-shadow: 0 5px 0px rgba(0,0,0,0.1); font-weight: 900;
+            text-align: center; display: flex; align-items: center; justify-content: center;
+            font-size: 0.95rem; line-height: 1.3; border: 3px solid white;
+        }
+
+        .tag-safety { background-color: var(--safety); color: white; }
+        .tag-neighbor { background-color: var(--neighbor); color: #4A4A4A; }
+        .tag-build { background-color: var(--build); color: #4A4A4A; }
+        .tag-culture { background-color: var(--culture); color: white; }
+
+        .slots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; width: 100%; }
+        @media (min-width: 600px) { .slots { grid-template-columns: repeat(4, 1fr); } }
+
+        .slot {
+            background: #FAFAFA; border: 3px dashed #DFE6E9; border-radius: 25px;
+            min-height: 160px; display: flex; flex-direction: column; align-items: center; 
+            padding: 8px; transition: 0.3s; width: 100%; overflow: hidden;
+        }
+        .slot.drag-over { background: #E1F5FE; border-color: #03A9F4; }
+        .slot-header { font-weight: 900; color: #B2BEC3; margin-bottom: 10px; font-size: 0.8rem; }
+        .slot .event-card { width: 100%; max-width: 100%; margin: 0; }
+
+        #result-area { display: none; border-top: 5px solid #F1F2F6; margin-top: 30px; padding-top: 20px; width: 100%; }
+        .score-display { font-size: 2.2rem; text-align: center; font-weight: 900; color: #FF7675; margin-bottom: 20px; }
+        
+        .feedback-bubble {
+            background: white; padding: 18px; border-radius: 25px; border-left: 10px solid #6C5CE7;
+            font-size: 1.05rem; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            line-height: 1.5; width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h1>🏫 小小地方官</h1>
+    <p>陳情案件堆積如山，身為地方官的你，<br>請運用智慧排出處理順序吧！</p>
+    <button class="btn-main" onclick="startGame()">開始受理陳情</button>
+</div>
+
+<div id="game-container">
+    <div class="legend-container">
+        <div class="legend-grid">
+            <div class="legend-item"><div class="dot" style="background:var(--safety)"></div> 安全：生命威脅</div>
+            <div class="legend-item"><div class="dot" style="background:var(--neighbor)"></div> 鄰里：環境安寧</div>
+            <div class="legend-item"><div class="dot" style="background:var(--build)"></div> 建設：硬體設施</div>
+            <div class="legend-item"><div class="dot" style="background:var(--culture)"></div> 文化：在地記憶</div>
+        </div>
+    </div>
+
+    <div class="instruction">💡 拖動卡片到數字格，最緊急的要放「第 1 優先」！</div>
+    
+    <div class="event-list" id="eventPool" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+
+    <div class="slots">
+        <div class="slot" ondrop="drop(event)" ondragover="allowDrop(event)" id="s1"><div class="slot-header">第 1 優先</div></div>
+        <div class="slot" ondrop="drop(event)" ondragover="allowDrop(event)" id="s2"><div class="slot-header">第 2 順位</div></div>
+        <div class="slot" ondrop="drop(event)" ondragover="allowDrop(event)" id="s3"><div class="slot-header">第 3 順位</div></div>
+        <div class="slot" ondrop="drop(event)" ondragover="allowDrop(event)" id="s4"><div class="slot-header">第 4 順位</div></div>
+    </div>
+
+    <button id="submit-btn" class="btn-main" style="margin:40px auto; display:block; background:#FF7675; box-shadow: 0 8px 0px #D63031;" onclick="submitDecision()">提交決策</button>
+
+    <div id="result-area">
+        <div class="score-display" id="score"></div>
+        <div id="ai-feedback-container"></div>
+        <button onclick="resetGame()" class="btn-main" style="margin: 30px auto; display:block; background:#00B894; box-shadow: 0 8px 0px #009475;">處理下一批陳情</button>
+    </div>
+</div>
+
+<script>
+    const eventPoolRaw = {
+        safety: [
+            "瓦斯味在巷口飄散，疑似管線外洩", "紅綠燈故障失效，路口車流混亂", "大樓防火門被鎖死，火災時無法逃生",
+            "救生圈被偷，海邊現場無救生器材", "滅火器過期發不出水", "虎頭蜂在校門口築巢，威脅學生安全",
+            "電線桿被撞歪，隨時可能倒塌", "老舊外牆磁磚剝落，砸中路邊機車", "施工現場未設圍籬，路人差點摔進深坑",
+            "路面出現巨大坑洞，導致多名騎士摔倒", "學校飲水機漏電，學生觸電受傷", "公園溜滑梯鋼鐵生鏽斷裂，割傷小孩",
+            "十字路口後視鏡被撞歪，看不清來車", "地下道淹水嚴重，車輛受困其中", "人行道地磚鬆動，長輩跌倒骨折",
+            "校園圍牆出現大裂縫，隨時可能倒塌", "山路出現落石，阻斷居民唯一進路", "廢棄工廠傳出濃煙，疑似火苗復燃",
+            "路燈漏電導致路過小狗被電擊", "河堤護欄毀損，民眾散步差點掉進河裡", "路面噴灑不明油漬，導致打滑",
+            "危險老舊招牌搖搖欲墜，颱風恐墜落", "平交道遮斷桿斷裂，火車即將經過", "隧道照明全滅，開車視線極差",
+            "高壓電線掉落在積水路面，冒出火花", "鄰居堆置大量易燃廢紙在樓梯間", "市場頂棚骨架斷裂，隨時會崩塌",
+            "兒童戲水池發現不明碎玻璃", "化學槽車撞車翻覆，液體流向排水溝", "電梯突然受困，裡面有待產孕婦",
+            "學校頂樓女兒牆晃動，地震恐墜落", "獨居老人住家傳出警報器尖銳響聲", "社區發電機室積水，恐發生爆炸",
+            "人行道樹木被強風吹斷，壓在車道中", "天橋踏板生鏽穿孔，路人腳陷進去", "工地塔吊鋼索疑似斷裂，吊臂晃動",
+            "噴水池幫浦漏電，孩童觸摸水被電", "防火巷堆滿報廢機車，消防車進不去", "大雨導致路基掏空，路邊車輛懸空",
+            "醫院急診室門口救護車道被亂停堵死", "學校實驗室化學品傾倒，傳出刺鼻味", "遊樂場搖搖馬底座斷裂，幼童摔傷",
+            "舊隧道上方有泥流湧出，土石流前兆", "有人在自家頂樓非法儲存瓦斯桶", "窄巷內私劃車位，阻礙消防栓取水",
+            "公園噴泉管線爆裂，水壓噴飛石塊", "危險建築標記被撕毀，民眾誤入禁地", "路邊電信箱蓋子消失，線路裸露",
+            "平交道偵測器失效，柵欄未放下", "老舊公車站亭橫梁斷裂，候車者險遭殃"
+        ],
+        neighbor: [
+            "隔壁鄰居半夜大聲練鼓，鄰居無法睡覺", "機車亂停擋住公共走道，造成進出困難", "有人亂餵鴿子導致滿地鳥屎，惡臭難聞",
+            "有人在公共走廊抽菸，煙味飄進別人家", "冷氣水滴到行人頭上，路過的人很生氣", "巷子口堆放大量垃圾桶，散發臭味",
+            "鄰居在自家陽台燒金紙，灰燼到處飛", "路邊空地長滿雜草，孳生大量蚊蟲", "凌晨四點垃圾車音樂太大聲，吵醒住戶",
+            "鄰居養的狗深夜狂吠，影響全樓睡眠", "有人把報廢洗衣機丟棄在公園角落", "洗車場洗車水流滿路面，導致行人濕滑",
+            "鄰居家裝潢噪音從早響到晚，考生難讀書", "餐廳油煙直接排向巷子，居民不敢開窗", "有人在路邊曬鹹魚，味道太重令人噁心",
+            "有人在公共公園裡私設卡拉OK唱歌", "鄰居堆放雜物堵住排氣孔，煙味回流", "機車排氣管改裝，深夜呼嘯過太吵",
+            "垃圾沒分類隨便亂丟，被貓狗咬得滿地", "鄰居在門口私設路障不讓人停車", "有人在排水溝倒廢油，排水孔全堵住",
+            "深夜有人在路邊放鞭炮，嚇壞小孩", "路邊廣告車廣播聲音過大，干擾鄰里", "鄰居陽台盆栽澆水，泥水流進樓下住家",
+            "住宅區有人非法經營小型家庭代工廠", "有人將公共腳踏車據為己有鎖在自家門", "鄰里監視器被噴漆損毀，治安出現漏洞",
+            "鄰居鞋架擺滿整個樓梯間，走過去會絆倒", "垃圾清運車漏油，沿路散發難聞氣味", "有人在公共公園裡私自開墾種菜",
+            "鄰居半夜在頂樓跳繩，樓下天花板震動", "有人在樓梯間噴漆家具，味道嗆人", "廢棄老屋內流浪貓聚集，半夜叫聲厲",
+            "有人在行人道上遛狗不清狗便，地雷多", "餐廳清晨搬運瓦斯桶聲音太大，吵醒住戶", "鄰居冷氣室外機熱風直噴別人窗戶",
+            "有人將廢電池丟入普通垃圾桶，危險", "巷內有人私自焊接鐵架，火花濺到路人", "垃圾轉運站滿出範圍，汙水流向民宅",
+            "有人在屋頂私蓋鐵皮屋，影響結構安全", "鄰居在自家樓梯間堆放大量舊書報", "有人在公園公廁牆壁亂塗鴉內容不雅",
+            "住宅區出現外地車輛亂停，住戶沒位停", "鄰居把舊沙發放在電梯門口三天不搬走", "有人在公園湖泊裡亂放生不知名的魚",
+            "清晨跳廣場舞音樂開太大聲，住戶困擾", "有人在社區門口私設拒馬佔位擋進出", "鄰居家遮雨棚螺絲鬆脫，風吹聲巨大",
+            "公寓頂樓被鎖起來不給住戶上去曬衣服", "有人在排水溝上方私蓋違建，清淤困難"
+        ],
+        build: [
+            "爭取在社區門口設公車站，方便長輩", "修復斷掉的社區小木橋，重新開放通行", "爭取校園老舊廁所大翻新，讓學生敢上",
+            "決定要蓋兒童圖書館，還是長照中心", "爭取加裝校園太陽能板", "規劃全鎮共享單車租借站，減少空汙",
+            "爭取在公園增設無障礙坡道", "修復火車站損壞的電梯，幫助輪椅族", "爭取在黑暗的小巷增設LED路燈",
+            "舊校舍外牆剝落，需要預算重新粉刷", "規劃自行車專用道，保護騎士安全", "爭取在偏鄉學校建置數位學習電腦教室",
+            "修復公園損壞籃球框，讓少年有處打球", "爭取在候車亭加裝透明擋風板", "規劃在市場周邊設置立體停車場",
+            "爭取重鋪年久失修產業道路，幫助農民", "修復活動中心漏水的屋頂，以便辦理課程", "爭取在社區入口設置防撞交通錐",
+            "規劃在校門口設置通學步道，人車分流", "爭取在公園增設寵物區，防止狗傷人", "修復偏鄉地區不穩定的網路基地台",
+            "爭取在海邊景點設置遮陽休息亭", "規劃在老舊公寓增設外部升降設備", "爭取重修地震後龜裂的灌溉水圳",
+            "修復老舊圖書館空調系統，鼓勵民眾入館", "爭取在平交道兩側加強照明設備", "規劃設置大型防災避難引導標誌",
+            "爭取在運動場增設夜間照明計費箱", "修復因雨水沖刷而流失的路肩基石", "爭取在學校門口設置彩色人行橫道線",
+            "規劃在工業區周邊增設空氣品質監測塔", "爭取修復歷史悠久的社區古井欄杆", "修復公園噴水池循環系統，避免孳生孑孓",
+            "爭取在山區彎道設置更大的廣角鏡", "規劃在河邊步道設置救生衣自動取用箱", "爭取在學校大門設置感應式側門",
+            "修復被撞壞的公車站路線說明牌", "爭取在停車場增設電動車充電樁", "規劃在社區公園設置雨水回收澆灌系統",
+            "爭取修復倒塌的操場看台遮陽帆布", "修復學校禮堂壞掉的音響設備", "爭取在公車內加裝輪椅固定鎖扣",
+            "規劃在社區入口設置智慧型導覽地圖", "爭取在老舊公園增設單槓與仰臥起坐板", "修復活動中心損毀的舞台木地板",
+            "爭取在危險路口加裝行人觸控式紅綠燈", "規劃在校園中庭設置防滑走道磚", "爭取重修被貨車撞壞的防撞桿",
+            "修復遊客中心壞掉飲水機與感應水龍頭", "爭取在社區入口設置智慧廚餘回收機"
+        ],
+        culture: [
+            "發現生病的老樟樹，需要請植物醫生治療", "辦理家鄉母語演講比賽，傳承優美語言", "發起後山淨山活動，清理遊客留下的垃圾",
+            "修復被颱風吹壞的土地公廟，守護社區信仰", "舉辦家鄉歷史照片特展，回顧往日情懷", "爭取保存即將被拆除的老磚窯遺址",
+            "邀請在地耆老走入校園講述部落傳說", "辦理傳統美食製作工作坊，教小孩捏麻糬", "爭取預算數位化保存村里的紙本族譜",
+            "發起傳統市場小旅行，認識在地生活美學", "辦理環境生態講座，認識家鄉特有蝴蝶", "爭取設立在地文化館，展示古老農具",
+            "辦理河川生態觀察隊，監測溪流裡的小魚", "發起舊鐵道活化計畫，變成藝文走廊", "辦理家鄉特色節慶（如：黑米祭）推廣活動",
+            "爭取修復倒塌的村口迎賓石牌標誌", "辦理傳承手工竹編藝品的文化營隊", "發起拍攝家鄉紀錄片計畫，記錄長輩故事",
+            "爭取將老街建築列入歷史建築保護名單", "辦理校園星空節，認識原住民星座觀看方式", "發起保護濕地棲地，禁止非法狩獵",
+            "辦理古老地名尋根活動，找出消失的舊地名", "爭取復興斷層已久的傳統布織工藝", "辦理家鄉詩詞寫生比賽，美化社區牆面",
+            "發起「送一本書回故鄉」活動充實圖書館", "辦理傳統童玩比賽（如：打陀螺、彈珠）", "爭取將老校舍改建成地方創生辦公室",
+            "辦理在地農法推廣課程，保護土地健康", "發起認養社區老房子活動，注入青年創意", "爭取保存百年梯田地景，避免開發破壞",
+            "辦理家鄉物產節，推廣在地特色農產品", "發起清理海灘海廢活動保護綠蠵龜產卵區", "爭取修復社區消失的公共洗衫板",
+            "辦理傳統節氣與農作生活的導覽講座", "發起復育在地原生種植物的植樹活動", "爭取將在地特有祭典歌曲錄製成專輯",
+            "辦理舊巷弄說故事導覽，吸引年輕人回流", "發起家鄉文化地圖繪製比賽", "爭取在校園設置本土語學習走廊",
+            "辦理在地藝術家聯展，展現家鄉多元色彩", "發起「家鄉的一日小鎮長」體驗活動", "爭取修復老舊的社區戲臺",
+            "辦理親子認識傳統草藥與植物的活動", "發起保存家鄉傳統工藝（如：雕刻、陶藝）", "爭取在中心設置家鄉數位影像資料庫",
+            "辦理推廣在地茶文化或米食文化的節慶", "發起保護老建築上精美雕花裝飾活動", "辦理家鄉生態小尖兵培訓營",
+            "爭取重修社區毀損的歷史導覽解說牌", "發起傳統戲曲（如：布袋戲）進社區演出"
+        ]
+    };
+
+    // 題目追蹤邏輯：確保 50 題內不重複
+    let usedIndices = { safety: [], neighbor: [], build: [], culture: [] };
+    let currentSafetyText = ""; 
+
+    function startGame() {
+        document.getElementById('start-screen').style.opacity = '0';
+        setTimeout(() => {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+            initGame();
+        }, 500);
+    }
+
+    function initGame() {
+        const pool = document.getElementById('eventPool');
+        pool.innerHTML = '';
+        let selected = [];
+
+        ['safety', 'neighbor', 'build', 'culture'].forEach(tag => {
+            const list = eventPoolRaw[tag];
+            let available = list.map((_, i) => i).filter(i => !usedIndices[tag].includes(i));
+            
+            if (available.length === 0) {
+                usedIndices[tag] = [];
+                available = list.map((_, i) => i);
+            }
+
+            const idx = available[Math.floor(Math.random() * available.length)];
+            usedIndices[tag].push(idx);
+
+            if(tag === 'safety') currentSafetyText = list[idx];
+            selected.push({ text: list[idx], tag });
+        });
+
+        selected.sort(() => Math.random() - 0.5);
+        selected.forEach((ev, i) => {
+            const card = document.createElement('div');
+            card.className = `event-card tag-${ev.tag}`;
+            card.innerText = ev.text;
+            card.id = "card-" + Date.now() + i;
+            card.draggable = true;
+            card.dataset.tag = ev.tag;
+            card.addEventListener('dragstart', (e) => e.dataTransfer.setData("text", e.target.id));
+            pool.appendChild(card);
+        });
+    }
+
+    function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
+
+    document.querySelectorAll('.slot, .event-list').forEach(zone => {
+        zone.addEventListener('dragleave', (e) => e.currentTarget.classList.remove('drag-over'));
+    });
+
+    function drop(ev) {
+        ev.preventDefault();
+        const slot = ev.currentTarget;
+        slot.classList.remove('drag-over');
+        const data = ev.dataTransfer.getData("text");
+        const card = document.getElementById(data);
+        if (!card) return;
+
+        if (slot.classList.contains('slot')) {
+            const existing = slot.querySelector('.event-card');
+            if (existing) document.getElementById('eventPool').appendChild(existing);
+            slot.appendChild(card);
+        } else {
+            document.getElementById('eventPool').appendChild(card);
+        }
+    }
+
+    function submitDecision() {
+        const s1 = document.getElementById('s1').querySelector('.event-card');
+        if (!s1) { alert("請至少把最重要的事件放在「第 1 優先」格！"); return; }
+        
+        const firstTag = s1.dataset.tag;
+        const firstText = s1.innerText; 
+        const resArea = document.getElementById('result-area');
+        const feedback = document.getElementById('ai-feedback-container');
+        resArea.style.display = 'block';
+
+        let score = (firstTag === 'safety') ? 98 : (firstTag === 'neighbor' ? 75 : 65);
+        document.getElementById('score').innerText = "民意滿意度：" + score + "%";
+
+        // 豐富化的里民角色庫
+        const citizens = [
+            { name: "👦 小學生阿明", ok: "「救命啊！還好官員先處理了這個，不然我們在校園都很害怕！」", fail: "「雖然保護老樹很重要，但這件事好危險，我們能先救命嗎？」" },
+            { name: "👵 陳奶奶", ok: "「謝謝官員！安全第一，修好這個我才敢放心出門散步。」", fail: "「官員啊，這件事雖然重要，但現在大家安全受威脅，能不能請你再想想？」" },
+            { name: "👨 張先生", ok: "「這才是有在做事的樣子！抓緊處理這種急件就對了。」", fail: "「我的天啊，這個更緊急的東西怎麼排在後面？大家會抗議的！」" },
+            { name: "👴 耆老林伯伯", ok: "「處理事情有條理，知道什麼最火燒心（焦急），不錯不錯。」", fail: "「年輕官員啊，這事關人命呀，應該要列為最優先才對。」" },
+            { name: "👩 隔壁李阿姨", ok: "「感謝官員聽到我們的心聲，第一時間解決這個隱患！」", fail: "「這個事件雖然急，但那邊的公共安全更讓人睡不著覺啊。」" }
+        ];
+        const randomCitizen = citizens[Math.floor(Math.random() * citizens.length)];
+
+        let citizenHtml = (firstTag === 'safety') 
+            ? `<b>${randomCitizen.name}：</b>${randomCitizen.ok}`
+            : `<b>${randomCitizen.name}：</b>${randomCitizen.fail}`;
+
+        let aiAdvice = (firstTag === 'safety')
+            ? `🌟 <b>完美調度！</b> 你精準掌握了『生命權優先』的原則。在社會行政中，守護居民的生存權永遠是第一位。`
+            : `💡 <b>建議調整策略：</b> 雖然你選擇的任務也很重要，但在資源分配時，<b>涉及生命安全的事件（如：${currentSafetyText}）必須列為首要任務。</b>`;
+
+        feedback.innerHTML = `
+            <div class="feedback-bubble" style="border-left-color: #FFB142;">${citizenHtml}</div>
+            <div class="feedback-bubble" style="border-left-color: #6C5CE7;">🤖 <b>AI 秘書長觀察：</b><br>${aiAdvice}</div>
+        `;
+
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    function resetGame() {
+        document.getElementById('result-area').style.display = 'none';
+        document.querySelectorAll('.slot').forEach(slot => {
+            const card = slot.querySelector('.event-card');
+            if (card) card.remove();
+        });
+        initGame();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
+</body>
+</html>
